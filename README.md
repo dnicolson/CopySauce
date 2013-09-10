@@ -1,12 +1,32 @@
 #CopySauce
 
-CopySauce was developed for working on Sitecore .NET projects to circumvent the build process by copying static files to the webroot. It should also work for .NET projects where the webroot is separate to the source files.
+CopySauce was developed for working on Sitecore .NET projects to circumvent the build process by copying static files to the web root. It should also work for .NET projects where the web root is separate to the source files.
 
 ##Configuring
 
-Projects, file types and exclude patterns can be manually managed by editing this file:
+When first launched there will be a prompt to locate the project and web root directories. After this a `.CopySauce.json` will be created in the root of the project directory with these options:
 
-`~\AppData\Local\CopySauce\CopySauce.json`
+    {
+        "web_root": "",
+        "file_exclude_patterns": [
+            "^\\.",
+            ".*\\.cs$"
+        ],
+        "folder_exclude_patterns": [
+            "^\\."
+        ],
+        "folders_to_watch": [
+            "css",
+            "images",
+            "img",
+            "javascript",
+            "js",
+            "layouts",
+            "views",
+            "xsl"
+        ],
+        "cmd_after_copy": ""
+    }
 
 ##Requirements
 

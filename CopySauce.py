@@ -1,19 +1,24 @@
-import shutil, json, time, os, sys, re
+import shutil, json, time, os, sys, re, stat
 from win32com.shell import shell
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from subprocess import call
 
 defaults = {
-    "projects": [],
+    "web_root":"",
     "folders_to_watch": ["css", "images", "img", "javascript", "js", "layouts", "views", "xsl"],
     "file_exclude_patterns": ["^\.", ".*\\.cs$"],
-    "folder_exclude_patterns": ["^\."]
+    "folder_exclude_patterns": ["^\."],
+    "cmd_after_copy": ""
 }
 
 class ChangeHandler(FileSystemEventHandler):
-    def __init__(self,file_exclude_patterns,folder_exclude_patterns):
+    def __init__(self,project_path,web_root,file_exclude_patterns,folder_exclude_patterns,cmd_after_copy):
+        self.project_path = project_path
+        self.web_root = web_root
         self.file_exclude_patterns = file_exclude_patterns
         self.folder_exclude_patterns = folder_exclude_patterns
+        self.cmd_after_copy = cmd_after_copy
 
     def _get_directories(self, path):
         directories = []
@@ -40,34 +45,65 @@ class ChangeHandler(FileSystemEventHandler):
                     # print "Excluding file", os.path.basename(src)
                     return True
 
+    def cmd_after_copy_check(self,dst):
+        if len(self.cmd_after_copy):
+           call([self.cmd_after_copy, dst],shell=True)
+
     def on_created(self, event):
-        if self.exclude_check(event.src_path,event.is_directory):
+        src = event.src_path
+        dst = src.replace(self.project_path,self.web_root)
+        if self.exclude_check(src,event.is_directory):
             return
         try:
             if (event.is_directory):
-                shutil.copytree(event.src_path,event.src_path.replace(project,webroot))
+                shutil.copytree(src,dst)
             else:
-                shutil.copy(event.src_path,event.src_path.replace(project,webroot))
-            print "Added", event.src_path.replace(project,"")
-        except Exception, err:
-            print err
-
-    def on_deleted(self, event):
-        if self.exclude_check(event.src_path,event.is_directory):
-            return
-        try:
-            os.unlink(event.src_path.replace(project,webroot))
-            print "Removed", event.src_path.replace(project,"")
+                # check if directory exists
+                dir = os.path.dirname(dst)
+                if not os.path.exists(dir):
+                    os.makedirs(dir)
+                shutil.copy(src,dst)
+            print "Added", src.replace(self.project_path,"")
+            self.cmd_after_copy_check(dst)
         except Exception, err:
             print err
 
     def on_modified(self, event):
-        if self.exclude_check(event.src_path,event.is_directory):
+        src = event.src_path
+        dst = src.replace(self.project_path,self.web_root)
+        if self.exclude_check(src,event.is_directory):
             return
         try:
             if not event.is_directory:
-                shutil.copy(event.src_path,event.src_path.replace(project,webroot))
-                print "Updated", event.src_path.replace(project,"")
+                # check if directory exists
+                dir = os.path.dirname(dst)
+                if not os.path.exists(dir):
+                    os.makedirs(dir)
+                shutil.copy(src,dst)
+                print "Updated", src.replace(self.project_path,"")
+                self.cmd_after_copy_check(dst)
+        except Exception, err:
+            print err
+
+    def _remove_readonly(self, fn, path, excinfo):
+        excvalue = exc[1]
+        if func in (os.rmdir, os.remove) and excvalue.errno == errno.EACCES:
+            os.chmod(path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+            func(path)
+        else:
+            raise
+
+    def on_deleted(self, event):
+        src = event.src_path
+        dst = src.replace(self.project_path,self.web_root)
+        if self.exclude_check(src,event.is_directory):
+            return
+        try:
+            if (event.is_directory):
+                shutil.rmtree(dst, ignore_errors=False, onerror=self._remove_readonly)
+            else:
+                os.unlink(dst)
+            print "Removed", src.replace(self.project_path,"")
         except Exception, err:
             print err
 
@@ -78,106 +114,109 @@ class ShellError(Exception):
         sys.exit()
 
 class Settings():
-    def __init__(self):
-        self.settingsfile = os.path.join(os.path.expanduser("~"),"AppData\\Local\\CopySauce\\CopySauce.json")
-        directory = os.path.dirname(self.settingsfile)
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        jsonfile = open(self.settingsfile,"ab+")
+    def __init__(self,project_path):
+        self.settings = defaults
+        self.settings_file = os.path.join(project_path,".CopySauce.json")
+        if not os.path.exists(self.settings_file):
+            open(self.settings_file,"ab+").write(json.dumps(self.settings, sort_keys=True, indent=4, separators=(',', ': ')))
         try:
-            self.settings = json.loads(jsonfile.read())
+            self.settings = json.loads(open(self.settings_file,"ab+").read())
         except ValueError, e:
-            self.settings = defaults
+            pass
+        if not "web_root" in self.settings or not len(self.settings['web_root']):
+            self.choose()
 
-    def get(self,key):
+    def choose(self):
+        print "Choose the web root directory...\n\n"
+        web_root = _directory()
+        if web_root == [] or not web_root:
+            raise ShellError("Please choose a web root directory")
+        self.settings["web_root"] = web_root
+        open(self.settings_file,"w+").write(json.dumps(self.settings, sort_keys=True, indent=4, separators=(',', ': ')))
+
+    def get(self,key = None):
+        if not key:
+            return self.settings
         if key not in self.settings:
             return []
         return self.settings[key]
 
-    def set(self,key,value):
-        try:
-            if value not in self.settings[key]:
-                self.settings[key].append(value)
-        except KeyError:
-            self.settings[key] = [value]
-        jsonfile = open(self.settingsfile,"w+")
-        jsonfile.write(json.dumps(self.settings, sort_keys=True, indent=4, separators=(',', ': ')))
-
-def get_project(projects):
-    if len(projects):
-        for i in range(len(projects)):
-            print str((i + 1)) + ".", projects[i]['source']
-        print
-        choice = raw_input("Choose a previous project or press enter to choose a new one.\n\n")
-        print
-    try:
-        int(choice)
-        if int(choice) in range(1,len(projects) + 1):
-            return [projects[(int(choice) - 1)]['source'],projects[(int(choice) - 1)]['webroot']]
-    except (ValueError, UnboundLocalError):
-        print "Choose the source directory...\n\n"
-        try:
-            pidl, display_name, image_list = shell.SHBrowseForFolder()
-            project = shell.SHGetPathFromIDList(pidl)
-            return [project,None]
-        except Exception, e:
-            raise ShellError(e)
-
-def get_webroot(project):
-    os.chdir(project)
-
-    dependency = ""
-    cwd = project
-    for i in range(1,10):
-        cwd = os.path.dirname(cwd)
-        if "Dependency" in os.listdir(cwd):
-            dependency = os.path.join(cwd,"Dependency")
-            break
-        if "dependency" in os.listdir(cwd):
-            dependency = os.path.join(cwd,"dependency")
-            break
-
-    if dependency:
-        if os.path.exists(os.path.join(dependency,"Sitecore")):
-            dependency = os.path.join(dependency,"Sitecore\\Website")
+class Project:
+    def __init__(self, path = None):
+        self.projects = []
+        if path:
+            self.path = path
         else:
-            dependency = os.path.join(dependency,"Website")
-        print dependency
-        choice = raw_input("\nUse the above webroot? [y]\n\n")
-        if choice.lower() == "y":
-            print
-            return dependency
+            self.projects_file = os.path.join(os.path.expanduser("~"),"AppData\\Local\\CopySauce\\CopySauce Projects.json")
+            try:
+                self.projects = json.loads(open(self.projects_file,"ab+").read())['projects']
+            except ValueError, e:
+                pass
+            if len(self.projects):
+                self.list()
+            else:
+                self.choose()
 
-    print "Choose the webroot...\n\n"
+    def choose(self):
+        print "Choose the project directory...\n"
+        self.path = _directory()
+        if self.path == [] or not self.path:
+            raise ShellError("Please choose a project directory")
+        if self.path not in self.projects:
+            self.projects.append(self.path)
+            open(self.projects_file,"w+").write(json.dumps({"projects":self.projects}, sort_keys=True, indent=4, separators=(',', ': ')))
+
+    def list(self):
+        if len(self.projects):
+            for i in range(len(self.projects)):
+                print str((i + 1)) + ".", self.projects[i]
+            print
+            choice = raw_input("Choose a previous project or press enter to choose a new one.\n\n")
+            print
+        try:
+            int(choice)
+            if int(choice) in range(1,len(self.projects) + 1):
+                self.path = self.projects[(int(choice) - 1)]
+        except (ValueError, UnboundLocalError):
+            self.choose()
+
+def _directory():
     try:
         pidl, display_name, image_list = shell.SHBrowseForFolder()
-        webroot = shell.SHGetPathFromIDList(pidl)
+        return shell.SHGetPathFromIDList(pidl)
+    except TypeError, e:
+        if e.message ==  "None is not a valid ITEMIDLIST in this context":
+            return []
     except Exception, e:
-        raise ShellError(e)
-    return webroot
+        return False
 
 if __name__ == "__main__":
     print "\nCopySauce running...\n"
 
-    settings = Settings()
-    event_handler = ChangeHandler(settings.get("file_exclude_patterns"),settings.get("folder_exclude_patterns"))
-    [project, webroot] = get_project(settings.get("projects"))
-    if not webroot:
-        webroot = get_webroot(project)
-    settings.set("projects",{"source": project, "webroot": webroot})
+    if len(sys.argv) == 3 and sys.argv[1] == "-p":
+        project = Project(sys.argv[2])
+    else:
+        project = Project()
 
-    print "Project: %s" % project
-    print "Webroot: %s\n" % webroot
+    settings = Settings(project.path)
+    event_handler = ChangeHandler(project.path,settings.get("web_root"),settings.get("file_exclude_patterns"),settings.get("folder_exclude_patterns"),settings.get("cmd_after_copy"))
 
+    print "Project: %s" % project.path
+    print "Web root: %s\n" % settings.get("web_root")
+
+    watching = False
     for path in settings.get('folders_to_watch'):
-        if not os.path.exists("%s\\%s" % (project,path)):
+        if not os.path.exists("%s\\%s" % (project.path,path)):
             #print "Skipping ", path
             continue
         print "Watching", path + "..."
-        p = "%s\\%s" % (project,path)
+        p = "%s\\%s" % (project.path,path)
         observer = Observer()
         observer.schedule(event_handler, path=p, recursive=True)
         observer.start()
+        watching = True
+    if not watching:
+        raise ShellError("No folders found to watch")
     try:
         while True:
             time.sleep(1)
