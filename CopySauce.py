@@ -147,7 +147,10 @@ class Project:
         if path:
             self.path = path
         else:
-            self.projects_file = os.path.join(os.path.expanduser("~"),"AppData\\Local\\CopySauce\\CopySauce Projects.json")
+            app_data = os.path.join(os.path.expanduser("~"),"AppData\\Local\\CopySauce")
+            if not os.path.exists(app_data):
+                os.makedirs(app_data)
+            self.projects_file = os.path.join(app_data,"CopySauce Projects.json")
             try:
                 self.projects = json.loads(open(self.projects_file,"ab+").read())['projects']
             except ValueError, e:

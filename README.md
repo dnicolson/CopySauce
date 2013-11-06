@@ -32,10 +32,11 @@ When first launched there will be a prompt to locate the project and web root di
 
 - Windows
 - Python 2.7
-- [Watchdog](http://pypi.python.org/pypi/watchdog) module
+- [Python for Windows extensions](http://sourceforge.net/projects/pywin32/)
+- [Watchdog](http://pypi.python.org/pypi/watchdog) module (install with [Setuptools](https://pypi.python.org/pypi/setuptools#windows))
 
 ##Optional
 
 [PyInstaller](http://www.pyinstaller.org/) (py2exe would probably work as well) can be used to make an executable:
-
     python pyinstaller.py -F CopySauce.py -i CopySauce.ico
+[UPX](http://upx.sourceforge.net/#download) for reducing binary size
