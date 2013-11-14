@@ -7,10 +7,11 @@ CopySauce was developed for working on Sitecore .NET projects to circumvent the 
 When first launched there will be a prompt to locate the project and web root directories. After this a `.CopySauce.json` will be created in the root of the project directory with these options:
 
     {
-        "web_root": "",
+        "cmd_after_copy": "",
         "file_exclude_patterns": [
             "^\\.",
-            ".*\\.cs$"
+            ".*\\.cs$",
+            "(?i).*\\.tmp$"
         ],
         "folder_exclude_patterns": [
             "^\\."
@@ -21,11 +22,12 @@ When first launched there will be a prompt to locate the project and web root di
             "img",
             "javascript",
             "js",
+            "scripts",
             "layouts",
             "views",
             "xsl"
         ],
-        "cmd_after_copy": ""
+        "web_root": ""
     }
 
 ##Requirements
@@ -37,6 +39,8 @@ When first launched there will be a prompt to locate the project and web root di
 
 ##Optional
 
-[PyInstaller](http://www.pyinstaller.org/) (py2exe would probably work as well) can be used to make an executable:
-    python pyinstaller.py -F CopySauce.py -i CopySauce.ico
-[UPX](http://upx.sourceforge.net/#download) for reducing binary size
+- [PyInstaller](http://www.pyinstaller.org/) (py2exe would probably work as well) can be used to make an executable:
+
+        python pyinstaller.py -F CopySauce.py -i CopySauce.ico
+
+- [UPX](http://upx.sourceforge.net/#download) for reducing binary size

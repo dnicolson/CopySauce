@@ -6,8 +6,8 @@ from subprocess import call
 
 defaults = {
     "web_root":"",
-    "folders_to_watch": ["css", "images", "img", "javascript", "js", "layouts", "views", "xsl"],
-    "file_exclude_patterns": ["^\.", ".*\\.cs$"],
+    "folders_to_watch": ["css", "images", "img", "javascript", "js", "scripts", "layouts", "views", "xsl"],
+    "file_exclude_patterns": ["^\.", ".*\\.cs$","(?i).*\\.tmp$"],
     "folder_exclude_patterns": ["^\."],
     "cmd_after_copy": ""
 }
@@ -63,7 +63,7 @@ class ChangeHandler(FileSystemEventHandler):
                 if not os.path.exists(dir):
                     os.makedirs(dir)
                 shutil.copy(src,dst)
-            print "Added", src.replace(self.project_path,"")
+            print "Added   ", src.replace(self.project_path,"")
             self.cmd_after_copy_check(dst)
         except Exception, err:
             print err
@@ -80,7 +80,7 @@ class ChangeHandler(FileSystemEventHandler):
                 if not os.path.exists(dir):
                     os.makedirs(dir)
                 shutil.copy(src,dst)
-                print "Updated", src.replace(self.project_path,"")
+                print "Updated ", src.replace(self.project_path,"")
                 self.cmd_after_copy_check(dst)
         except Exception, err:
             print err
@@ -103,7 +103,7 @@ class ChangeHandler(FileSystemEventHandler):
                 shutil.rmtree(dst, ignore_errors=False, onerror=self._remove_readonly)
             else:
                 os.unlink(dst)
-            print "Removed", src.replace(self.project_path,"")
+            print "Removed ", src.replace(self.project_path,"")
         except Exception, err:
             print err
 
@@ -174,7 +174,7 @@ class Project:
             for i in range(len(self.projects)):
                 print str((i + 1)) + ".", self.projects[i]
             print
-            choice = raw_input("Choose a previous project or press enter to choose a new one.\n\n")
+            choice = raw_input("Choose a previous project or press enter to choose a new one. [" + "".join(str(n) for n in range(1,len(self.projects)+1)) + "]\n\n")
             print
         try:
             int(choice)
@@ -218,6 +218,7 @@ if __name__ == "__main__":
         observer.schedule(event_handler, path=p, recursive=True)
         observer.start()
         watching = True
+    print
     if not watching:
         raise ShellError("No folders found to watch")
     try:
