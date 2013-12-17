@@ -1,4 +1,4 @@
-import shutil, json, time, os, sys, re, stat
+import shutil, json, time, os, sys, re, stat, shlex
 from win32com.shell import shell
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -47,7 +47,7 @@ class ChangeHandler(FileSystemEventHandler):
 
     def cmd_after_copy_check(self,dst):
         if len(self.cmd_after_copy):
-           call([self.cmd_after_copy, dst],shell=True)
+           call(shlex.split(self.cmd_after_copy) + [dst])
 
     def on_created(self, event):
         src = event.src_path
