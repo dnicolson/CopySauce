@@ -1,3 +1,8 @@
+#Unmaintained
+
+There is a fork available here:
+https://github.com/rdebeasi/CopySauce
+
 #CopySauce
 
 CopySauce was developed for working on Sitecore .NET projects to circumvent the build process by copying static files to the web root. It should also work for .NET projects where the web root is separate to the source files.
